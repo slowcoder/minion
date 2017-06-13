@@ -183,3 +183,22 @@ void cpus_test(vm_t *pVM) {
 		pthread_kill(pVM->pVCPU[iCPU].thread.hdl,SIGUSR1);
 	}
 }
+
+int intvm_irq_set(int irq,int level) {
+	struct kvm_irq_level irq_level;
+
+	irq_level	= (struct kvm_irq_level) {
+		{
+			.irq		= irq,
+		},
+		.level		= level,
+	};
+
+	vm_t *pVM = current_vcpu->thread.pVM;
+
+	if (ioctl(pVM->fd_vm, KVM_IRQ_LINE, &irq_level) < 0) {
+		ASSERT(0,"KVM_IRQ_LINE failed");
+	}
+
+	return 0;
+}

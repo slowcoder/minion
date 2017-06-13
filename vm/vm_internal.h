@@ -68,3 +68,5 @@ int intvm_loader_release(vm_t *pVM);
 int intvm_cpus_start(vm_t *pVM);
 
 void *intvm_memory_getguestspaceptr(vm_t *pVM,uint64_t guestaddr);
+
+int intvm_irq_set(int irq,int level);
