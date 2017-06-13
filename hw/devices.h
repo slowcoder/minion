@@ -1,11 +1,8 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <stdint.h>
 
 int devices_init(void);
 
-#ifdef __cplusplus
-}
-#endif
+int devices_io_out(uint16_t port,int datalen,void *pData);
+int devices_io_in(uint16_t port,int datalen,void *pData);

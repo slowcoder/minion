@@ -1,45 +1,56 @@
 CC := gcc
 CXX := g++
 
-CFLAGS := -g -Wall -I.
+CFLAGS := -g -Wall -Werror -I.
 LDFLAGS := -g -pthread
 
+# Minion core
 OBJS := \
 	main.o \
-	vm.o \
-	vm_loader.o \
-	vm_cpuutils.o \
-	hw/devices.o \
-	hw/io.o \
-	hw/pci.o \
-	hw/cmos.o \
-	hw/i8250.o \
-	hw/i8042.o
+	vm/vm_api.o \
+	vm/vm.o \
+	vm/vm_biostables.o \
+	vm/vm_cpus.o \
+	vm/vm_cpus_util.o \
+	vm/vm_memory.o \
+	vm/loader.o \
 
+# Busses and Devices
+OBJS += \
+	hw/devices.o \
+	hw/isa/isa.o \
+	hw/isa/cmos.o \
+	hw/isa/i8042.o \
+	hw/isa/i8250.o \
+	hw/pci/pci.o
+
+# CAOS
 OBJS += \
 	caos/caos_linux.o \
 	caos/log.o
 
-CFLAGS += -Iinclude/
+CFLAGS += -Icaos/include/
 
 ALL_DEPS := $(patsubst %.o,%.d,$(OBJS))
 
-all: shard
+all: minion
 
 clean:
 	@echo "Cleaning"
-	@rm -f shard $(OBJS) $(ALL_DEPS)
+	@rm -f minion $(OBJS) $(ALL_DEPS)
 
-shard: $(OBJS)
-	$(CXX) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+minion: $(OBJS)
+	@echo "LINK $@"
+	@$(CXX) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 %.o:%.c
+	@echo "CC $<"
 	@$(CC) -MM -MF $(subst .o,.d,$@) -MP -MT "$@ $(subst .o,.d,$@)" $(CFLAGS) $<
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
 
-%.o:%.cpp
-	@$(CXX) -MM -MF $(subst .o,.d,$@) -MP -MT "$@ $(subst .o,.d,$@)" $(CFLAGS) $<
-	$(CXX) $(CFLAGS) -c -o $@ $<
+#%.o:%.cpp
+#	@$(CXX) -MM -MF $(subst .o,.d,$@) -MP -MT "$@ $(subst .o,.d,$@)" $(CFLAGS) $<
+#	$(CXX) $(CFLAGS) -c -o $@ $<
 
 ifneq ("$(MAKECMDGOALS)","clean")
 -include $(ALL_DEPS)

@@ -8,7 +8,8 @@ typedef enum {
 	eVMState_Created,
 	eVMState_Paused,
 	eVMState_Running,
-	eVMState_Finished	
+	eVMState_Finished_Reset,
+	eVMState_Finished_Poweroff
 } eVMState;
 
 struct vm *vm_create(int numcpus,uint16_t megram);

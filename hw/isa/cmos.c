@@ -3,10 +3,10 @@
 #include <sys/time.h>
 
 
-#include "hw/io.h"
+#include "hw/isa/isa.h"
 #include "caos/log.h"
 
-#include "hw/cmos.h"
+#include "hw/isa/cmos.h"
 
 #define DEC2BCD(x) ( ((x/10)<<4) | (x % 10) )
 
@@ -49,10 +49,11 @@ uint8 bin2bcd(ctx_t *pCtx,uint8 val) {
 }
 
 
-static uint8_t cmos_inb(struct io_handler *hdl,uint16_t port) {
+static uint8_t cmos_inb(struct isa_handler *hdl,uint16_t port) {
 	ctx_t *pCtx = (ctx_t*)hdl->opaque;
 	uint8_t ret;
 
+	port -= hdl->base;
 	//LOG("CMOS read from register 0x%x",pCtx->indexreg);
 
 	if( pCtx->indexreg == 0x00 ) { // RTC - Seconds
@@ -124,19 +125,21 @@ static uint8_t cmos_inb(struct io_handler *hdl,uint16_t port) {
 	return 0xFF;
 }
 
-static void  cmos_outb(struct io_handler *hdl,uint16_t port,uint8_t val) {
+static void  cmos_outb(struct isa_handler *hdl,uint16_t port,uint8_t val) {
 	ctx_t *pCtx = (ctx_t*)hdl->opaque;
+
+	port -= hdl->base;
 
 	if( port == 0x00 ) {
 		pCtx->indexreg = val & ~0x80; // Top bit determines if NMI is enabled or not
 		return;
 	} else {
-		LOG("CMOS write to register 0x%x",pCtx->indexreg);
+//		LOG("CMOS write to register 0x%x",pCtx->indexreg);
 	}
 }
 
-int cmos_init(void) {
-	static struct io_handler hdl;
+int hw_isa_cmos_init(void) {
+	static struct isa_handler hdl;
 	static ctx_t ctx;
 
 	hdl.base   = 0x70;
@@ -144,7 +147,7 @@ int cmos_init(void) {
 	hdl.inb    = cmos_inb;
 	hdl.outb   = cmos_outb;
 	hdl.opaque = &ctx;
-	io_register_handler(&hdl);
+	hw_isa_register_handler(&hdl);
 
 	return 0;
 }

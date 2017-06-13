@@ -1,2 +1,5 @@
 kernels/
 uartlog.txt
+*.d
+*.o
+minion
