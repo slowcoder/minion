@@ -34,7 +34,7 @@ int intvm_memory_setup(vm_t *pVM) {
 
 	ASSERT(pVM->config.ramsize <= (3*1024),"FIXME: Support more than 3GB of RAM");
 
-	userspace_addr = mmap(0, pVM->config.ramsize*1024*1024,
+	userspace_addr = mmap(0, (uint64_t)pVM->config.ramsize*1024ULL*1024ULL,
 		PROT_EXEC | PROT_READ | PROT_WRITE,
 		MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	if( userspace_addr == MAP_FAILED ) {
@@ -46,7 +46,7 @@ int intvm_memory_setup(vm_t *pVM) {
 
 	LOGD("LowRAM = %p",pVM->ram.pLow);
 
-	if( map_ram(pVM,0x0,userspace_addr,pVM->config.ramsize*1024*1024) != 0 ) {
+	if( map_ram(pVM,0x0,userspace_addr,(uint64_t)pVM->config.ramsize*1024ULL*1024ULL) != 0 ) {
 		LOGE("Failed to map low-RAM into VM");
 		return -2;
 	}
