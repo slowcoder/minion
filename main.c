@@ -11,7 +11,7 @@ int main(void) {
 	struct vm *pVM;
 	int r = 0;
 
-	pVM = vm_create(1,1024);
+	pVM = vm_create(2,1024);
 	if( pVM == NULL ) {
 		LOGE("Failed to create VM");
 		r = -1;
