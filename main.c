@@ -4,7 +4,7 @@
 #include "caos/log.h"
 #include "vm/vm_api.h"
 
-#define KERNEL_FILE "kernels/bzImage.64"
+#define KERNEL_FILE "kernels/bzImage-initrd.64"
 //#define KERNEL_FILE "kernels/bzImage-3.16.44.64"
 
 int main(void) {

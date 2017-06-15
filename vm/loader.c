@@ -101,10 +101,6 @@ static int create_zeropage(vm_t *pVM) {
 
 	strcpy(cmd_line,"noapic noacpi pci=conf1 i8042.direct=1 console=ttyS0 i8042.noaux=1 earlyprintk=serial");
 	strcpy(cmd_line,"nolapic noapic noacpi pci=conf1 reboot=k panic=1 i8042.direct=1 i8042.dumbkbd=1 i8042.nopnp=1 earlyprintk=serial console=ttyS0 i8042.noaux=1 root=ram0 rw");
-	strcpy(cmd_line,"noapic noacpi pci=conf1 reboot=k panic=1 i8042.direct=1 i8042.dumbkbd=1 i8042.nopnp=1 console=ttyS0 i8042.noaux=1 root=/dev/vda rw");
-	strcpy(cmd_line,"noapic noacpi pci=conf1 reboot=k panic=1 i8042.direct=1 i8042.dumbkbd=1 i8042.nopnp=1 console=ttyS0 i8042.noaux=1 8250_core.skip_txen_test=1 rw");
-
-///	strcpy(cmd_line,"apic=debug pci=conf1 reboot=k panic=1 i8042.direct=1 i8042.dumbkbd=1 i8042.nopnp=1 earlyprintk=serial console=ttyS0 i8042.noaux=1 root=/dev/vda rw");
 
 	// Zero out ourselves
 	memset(zero_page, 0, sizeof(struct boot_params));

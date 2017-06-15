@@ -5,7 +5,7 @@
 
 #include "vm/vm_internal.h"
 #include "hw/isa/isa.h"
-#define LOGLEVEL LOGLEVEL_DEBUG
+//#define LOGLEVEL LOGLEVEL_DEBUG
 #include "caos/log.h"
 
 #include "hw/isa/i8250.h"
@@ -61,9 +61,11 @@ static void check_for_irqs(ctx_t *pCtx) {
 
 	irq_pending = 0;
 
+	LOGD("IER_THREMPTY=0x%x",pCtx->reg.ier & IER_THREMPTY);
 	if( pCtx->reg.ier & IER_THREMPTY ) {
 		pCtx->reg.iir = (1<<1); // THR empty
 		pCtx->reg.iir |= (1<<0); // Interrupt pending
+		pCtx->reg.iir &= ~(1<<0); // Interrupt pending (0=pending IRQ)
 		irq_pending = 1;
 	}
 
@@ -72,7 +74,7 @@ static void check_for_irqs(ctx_t *pCtx) {
 		irq_set = 1;
 	} else if( !irq_pending && irq_set ) {
 		pCtx->reg.iir = 0;
-		intvm_irq_set(4,0);		
+		intvm_irq_set(4,0);
 		irq_set = 0;
 	}
 }
