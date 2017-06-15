@@ -29,6 +29,10 @@ typedef struct vm {
 	} config;
 
 	struct {
+		int out,in;
+	} console;
+
+	struct {
 		uint32_t numexits;
 	} stats;
 } vm_t;
@@ -70,3 +74,4 @@ int intvm_cpus_start(vm_t *pVM);
 void *intvm_memory_getguestspaceptr(vm_t *pVM,uint64_t guestaddr);
 
 int intvm_irq_set(int irq,int level);
+int intvm_get_console(vm_t *pVM,int *out,int *in);

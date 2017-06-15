@@ -30,7 +30,7 @@ struct vm *vm_create(int numcpus,uint16_t megram) {
 		goto err_exit;
 	}
 
-	devices_init();
+	devices_init(pVM);
 
 	return pVM;
 
@@ -43,6 +43,9 @@ err_exit:
 
 void       vm_destroy(struct vm *pVM) {
 	if( pVM == NULL ) return;
+
+	LOG("Destroying VM");
+	LOG(" Num VM exits: %u",pVM->stats.numexits);
 
 	intvm_cpus_release(pVM);
 	intvm_memory_release(pVM);

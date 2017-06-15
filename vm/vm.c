@@ -61,3 +61,12 @@ error_exit:
 	if(  pVM->fd_kvm != -1 ) close(pVM->fd_kvm);
 	return r;
 }
+
+int intvm_get_console(vm_t *pVM,int *out,int *in) {
+	if( pVM == NULL ) return -1;
+
+	if( out != NULL ) {
+		*out = STDOUT_FILENO;
+	}
+	return 0;
+}

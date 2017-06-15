@@ -7,10 +7,10 @@
 
 #include "hw/devices.h"
 
-int devices_init(void) {
+int devices_init(struct vm *pVM) {
 
 	hw_isa_init();
-	hw_isa_i8250_init();
+	hw_isa_i8250_init(pVM);
 	hw_isa_cmos_init();
 	hw_isa_i8042_init();
 

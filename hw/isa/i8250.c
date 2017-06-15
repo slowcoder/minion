@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <unistd.h>
 #include <ctype.h>
 
 #include "vm/vm_internal.h"
@@ -10,6 +11,7 @@
 #include "hw/isa/i8250.h"
 
 typedef struct {
+	int con_out,con_in;
 
 	struct {
 		uint8_t rbr,thr,dll; // base + 0
@@ -36,7 +38,7 @@ static void output_truncate(void) {
 	}
 }
 
-static void output_append(uint8_t b) {
+static void output_append(ctx_t *pCtx,uint8_t b) {
 	FILE *fd;
 
 	if( !isprint(b) && (b != '\n') )
@@ -48,10 +50,14 @@ static void output_append(uint8_t b) {
 		fflush(fd);
 		fclose(fd);
 	}
+	if( pCtx->con_out >= 0 ) {
+		write(pCtx->con_out,&b,1);
+	}
 }
 
 static void check_for_irqs(ctx_t *pCtx) {
-	uint8_t irq_pending;
+	static volatile int irq_set = 0;
+	int irq_pending;
 
 	irq_pending = 0;
 
@@ -61,10 +67,13 @@ static void check_for_irqs(ctx_t *pCtx) {
 		irq_pending = 1;
 	}
 
-	if( irq_pending ) {
+	if( irq_pending && !irq_set ) {
 		intvm_irq_set(4,1);
-	} else {
+		irq_set = 1;
+	} else if( !irq_pending && irq_set ) {
+		pCtx->reg.iir = 0;
 		intvm_irq_set(4,0);		
+		irq_set = 0;
 	}
 }
 
@@ -80,9 +89,14 @@ static uint8_t i8250_inb(struct isa_handler *hdl,uint16_t port) {
 	} else if( (port == 1) && (DLAB == 0) ) { // IER
 		return pCtx->reg.ier;
 	} else if( (port == 2) && (DLAB == 0) ) { // IIR
+		uint8_t ret;
+
+		ret = pCtx->reg.iir;
 		// Reset THREMPY in IIR
 		pCtx->reg.iir &= ~(1<<1);
-		return pCtx->reg.iir;
+		check_for_irqs(pCtx);
+
+		return ret;
 	} else if( port == 3 ) { // LCR
 		return pCtx->reg.lcr;
 	} else if( port == 4 ) { // MCR
@@ -112,10 +126,13 @@ static void  i8250_outb(struct isa_handler *hdl,uint16_t port,uint8_t val) {
 	LOGD("Write to port 0x%04x (DLAB=%i,Val=0x%02x)",port,DLAB,val);
 
 	if( (port == 0) && (DLAB == 0) ) { // THR
+
+		output_append(pCtx,val);
+
 		// Reset THREMPY in IIR
 		pCtx->reg.iir &= ~(1<<1);
 
-		output_append(val);
+		check_for_irqs(pCtx);
 	} else if( (port == 0) && (DLAB == 1) ) { // DLL
 		pCtx->reg.dll = val;
 	} else if( (port == 1) && (DLAB == 0) ) { // IER
@@ -132,20 +149,24 @@ static void  i8250_outb(struct isa_handler *hdl,uint16_t port,uint8_t val) {
 			(val>>2)&1,
 			(val>>3)&1,
 			(val>>6)&3);
+		if( (val&1) == 0 ) {
+			pCtx->reg.fcr = 0;
+		} else {
+			pCtx->reg.fcr = 0;
+		}
 	} else if( port == 3 ) { // LCR
 		pCtx->reg.lcr = val;
 		LOGD("%i%c%i DLAB=%i",5+(val&3),val&(1<<3) ? '?' : 'N',((val>>2)&1)+1,val>>7);
 	} else if( port == 4 ) { // MCR
 		pCtx->reg.mcr = val;
+		ASSERT( (val&(1<<4)) == 0,"Loopback not implemented");
 	} else if( port == 7 ) { // SCR
 		pCtx->reg.scr = val;
-//		pCtx->reg.scr = 0; // Invalidate SCR, trying to be a 8250A
-	} else if( port == 0x0FF ) {
-		output_append(val);
+		pCtx->reg.scr = 0; // Invalidate SCR, trying to be a 8250A
 	} else {
 		ASSERT(0,"Unimplemented write @ 0x%04x (DLAB=%i, val=0x%02x)",port,DLAB,val);
 	}
-	check_for_irqs(pCtx);
+//	check_for_irqs(pCtx);
 }
 
 static uint8_t i8250_dummy_inb(struct isa_handler *hdl,uint16_t port) {
@@ -155,7 +176,7 @@ static uint8_t i8250_dummy_inb(struct isa_handler *hdl,uint16_t port) {
 static void  i8250_dummy_outb(struct isa_handler *hdl,uint16_t port,uint8_t val) {
 }
 
-int hw_isa_i8250_init(void) {
+int hw_isa_i8250_init(struct vm *pVM) {
 	static struct isa_handler hdl[4];
 	static ctx_t ctx = {0};
 
@@ -188,6 +209,8 @@ int hw_isa_i8250_init(void) {
 	hw_isa_register_handler(&hdl[3]);
 
 	output_truncate();
+
+	intvm_get_console(pVM,&ctx.con_out,&ctx.con_in);
 
 	return 0;
 }

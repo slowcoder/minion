@@ -55,6 +55,7 @@ static inline int handle_io(vcpu_t *pVCPU,struct kvm_run *pState) {
 
 static void *cpu_thread(void *pArg) {
 	vcpu_t *pVCPU = (vcpu_t*)pArg;
+	vm_t *pVM;
     struct kvm_run  *pState;
 	int r;
 	vcputhread_t *pThread = NULL;
@@ -63,6 +64,8 @@ static void *cpu_thread(void *pArg) {
 
 	pThread = pVCPU->thread.priv;
 	pThread->bRunning = 1;
+
+	pVM = pVCPU->thread.pVM;
 
 	current_vcpu = pVCPU;
 	signal(SIGUSR1,handle_sigusr1);
@@ -74,6 +77,8 @@ static void *cpu_thread(void *pArg) {
 		if( (r == -1) && (errno == EINTR) ) {
 			LOG("INTR!");
 		}
+
+		pVM->stats.numexits++;
 
 		pState = (struct kvm_run*)pVCPU->state;
 
@@ -195,6 +200,8 @@ int intvm_irq_set(int irq,int level) {
 	};
 
 	vm_t *pVM = current_vcpu->thread.pVM;
+
+	LOG("IRQ%i=%i",irq,level);
 
 	if (ioctl(pVM->fd_vm, KVM_IRQ_LINE, &irq_level) < 0) {
 		ASSERT(0,"KVM_IRQ_LINE failed");
