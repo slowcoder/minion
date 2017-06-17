@@ -27,7 +27,7 @@ int main(void) {
 	vm_run(pVM);
 
 	LOG("VM running. Sleeping main thread..");
-	sleep(5);
+	sleep(15);
 	vm_destroy(pVM);
 	LOG("Done. Bye!");
 	return 0;
