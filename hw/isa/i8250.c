@@ -41,7 +41,7 @@ static void output_truncate(void) {
 static void output_append(ctx_t *pCtx,uint8_t b) {
 	FILE *fd;
 
-	if( !isprint(b) && (b != '\n') )
+	if( !isascii(b) )
 		return;
 
 	fd = fopen("uartlog.txt","at");
