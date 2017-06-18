@@ -126,16 +126,35 @@ static int create_zeropage(vm_t *pVM) {
 
 //	if( pVM->pLoader->type == eImagetype_Linux64 ) {
 
-	zero_page->e820_entries++;
-	zero_page->e820_map[1].addr = 0x100000UL; // A20 range and up to 3GB
-	zero_page->e820_map[1].size = (pVM->config.ramsize-1) * 1024 * 1024;
-	zero_page->e820_map[1].type = E820_RAM;
+	if( pVM->config.ramsize <= (3*1024ULL) ) { // <=3GB
+		zero_page->e820_entries++;
+		zero_page->e820_map[1].addr = 0x100000UL; // A20 range and up to 3GB
+		zero_page->e820_map[1].size = (pVM->config.ramsize-1) * 1024ULL * 1024ULL;
+		zero_page->e820_map[1].type = E820_RAM;
 
-	// Reserve 3G->4G for MMIO
-	zero_page->e820_entries++;
-	zero_page->e820_map[2].addr = 0xC0000000UL; // 3GB
-	zero_page->e820_map[2].size = 0xC0000000UL; // 1GB
-	zero_page->e820_map[2].type = E820_UNUSABLE;
+		// Reserve 3G->4G for MMIO
+		zero_page->e820_entries++;
+		zero_page->e820_map[2].addr = 0xC0000000UL; // 3GB
+		zero_page->e820_map[2].size = 0x40000000UL; // 1GB
+		zero_page->e820_map[2].type = E820_UNUSABLE;
+	} else { // >3GB
+		zero_page->e820_entries++;
+		zero_page->e820_map[1].addr = 0x00100000UL; // A20 range and up to 3GB
+		zero_page->e820_map[1].size = 0xBFF00000UL; // 1MB -> 3GB
+		zero_page->e820_map[1].type = E820_RAM;
+
+		// Reserve 3G->4G for MMIO
+		zero_page->e820_entries++;
+		zero_page->e820_map[2].addr = 0xC0000000UL; // 3GB
+		zero_page->e820_map[2].size = 0x40000000UL; // 1GB
+		zero_page->e820_map[2].type = E820_UNUSABLE;
+
+		// Rest of the memory goes above 4GB
+		zero_page->e820_entries++;
+		zero_page->e820_map[3].addr = 0x100000000UL; // 4GB
+		zero_page->e820_map[3].size = (pVM->config.ramsize-3*1024ULL) * 1024ULL * 1024ULL;
+		zero_page->e820_map[3].type = E820_RAM;
+	}
 
 #if 0
 	} else if( pVM->pLoader->type == eImagetype_Linux32 ) {
