@@ -85,6 +85,18 @@ static void *cpu_thread(void *pArg) {
 		if( pState->exit_reason == KVM_EXIT_IO ) {
 			handle_io(pVCPU,pState);
 //			LOG("IO");
+		} else if( pState->exit_reason == KVM_EXIT_MMIO ) {
+			LOGD("EXIT_MMIO");
+			LOGD(" phys_addr=0x%llx",pState->mmio.phys_addr);
+			LOGD(" len=%u",pState->mmio.len);
+			LOGD(" is_write=%u",pState->mmio.is_write);
+
+			if( pState->mmio.is_write ) {
+				devices_mmio_out(pState->mmio.phys_addr,pState->mmio.len,pState->mmio.data);
+			} else {
+				devices_mmio_in(pState->mmio.phys_addr,pState->mmio.len,pState->mmio.data);
+			}
+			//ASSERT(0,"EXIT_MMIO not implemented");
 		} else if( pState->exit_reason == KVM_EXIT_INTR ) {
 		} else {
 			LOGE("Unhandled KVM Exit-reason: %u (%s)",pState->exit_reason,kvm_exitreason_str[pState->exit_reason]);
@@ -201,7 +213,7 @@ int intvm_irq_set(int irq,int level) {
 
 	vm_t *pVM = current_vcpu->thread.pVM;
 
-	LOG("IRQ%i=%i",irq,level);
+	LOGD("IRQ%i=%i",irq,level);
 
 	if (ioctl(pVM->fd_vm, KVM_IRQ_LINE, &irq_level) < 0) {
 		ASSERT(0,"KVM_IRQ_LINE failed");

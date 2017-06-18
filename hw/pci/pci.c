@@ -1,4 +1,5 @@
 #include <string.h>
+//#define LOGLEVEL LOGLEVEL_DEBUG
 #include "caos/log.h"
 
 #include "hw/isa/isa.h"
@@ -38,7 +39,7 @@ typedef struct {
 } pcidev_t;
 #pragma pack(pop)
 
-static pcidev_t fakedev[2] = {
+static pcidev_t fakedev[3] = {
 
 	{ // Fake host-bridge device
 		.ba.bus = 0,
@@ -60,6 +61,19 @@ static pcidev_t fakedev[2] = {
 		.configspace.subclass = 0, // Serial
 		.configspace.progif = 0,   // Generic XT-Compatible Serial Controller
 		.configspace.bar[0] = 0x3F8 | 1,
+	},
+	{ // Virtio block
+		.ba.bus = 0,
+		.ba.dev = 2,
+		.ba.func = 0,
+		.configspace.vid = 0x1AF4,
+		.configspace.pid = 0x1001, // Block
+		.configspace.revid = 0, // Storage
+		.configspace.class = 0x1,  // Mass storage
+		.configspace.subclass = 0x80, // Other
+		.configspace.progif = 0,
+		.configspace.bar[0] = 0xC0001000 | 0,
+
 	}
 };
 
@@ -97,6 +111,12 @@ static int write_bar(pcidev_t *pDev,int bar,uint32_t val) {
 		} else {
 			pDev->configspace.bar[bar] = val;
 		}
+	} else if( (pDev->ba.bus == 0) && (pDev->ba.dev == 2) && (bar==0) ) {
+		if( val == 0xFFFFFFFF ) { // Get size
+			pDev->configspace.bar[bar] = ~0xFFF;
+		} else {
+			pDev->configspace.bar[bar] = val;
+		}
 	}
 
 	LOGD("%p: BAR%i = 0x%08x",pDev,bar,val);
@@ -113,7 +133,7 @@ static uint32 read_bar(pcidev_t *pDev,int bar) {
 
 static int write_device_config_b(pcidev_t *pDev,int reg,uint32_t val) {
 	if( (reg < 0x10) || (reg >= 0x28) ) {
-		LOGW("Write to non-BAR register (0x%02x). Not supported",reg);
+		LOGW("Write to non-BAR register (0x%02x, val=0x%x). Not supported",reg,val);
 		return 0;
 	}
 
@@ -244,7 +264,7 @@ static void  isa_pci_outb(struct isa_handler *hdl,uint16_t port,uint8_t val) {
 
 		shift = (port - ADDRESS_PORT) * 8;
 		shift = 24 - shift;
-		LOG("Shift=%i - Val=0x%02x",shift,val);
+
 		newaddr = curr_addr.raw & ~(0xFF<<shift);
 		newaddr |= val << shift;
 		write_address(newaddr);
@@ -325,4 +345,12 @@ int hw_pci_init(void) {
 
 int hw_pci_register_handler(pci_handler_t *handler) {
 	return 0;
+}
+
+int hw_pci_mmio_out(uint64_t addr,int datalen,void *pData) {
+	return -1;
+}
+
+int hw_pci_mmio_in(uint64_t addr,int datalen,void *pData) {
+	return -1;
 }

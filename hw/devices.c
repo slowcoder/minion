@@ -33,3 +33,19 @@ int devices_io_in(uint16_t port,int datalen,void *pData) {
 	}
 	return -1;
 }
+
+int devices_mmio_out(uint64_t addr,int datalen,void *pData) {
+	int r;
+
+	r = hw_pci_mmio_out(addr,datalen,pData);
+
+	return r;
+}
+
+int devices_mmio_in(uint64_t addr,int datalen,void *pData) {
+	int r;
+
+	r = hw_pci_mmio_in(addr,datalen,pData);
+
+	return r;
+}
