@@ -4,89 +4,33 @@
 
 #include "hw/isa/isa.h"
 #include "hw/pci/pci.h"
+#include "hw/pci/pci_internal.h"
 
 #define ADDRESS_PORT 0xCF8
 #define DATA_PORT    0xCFC
 
-#pragma pack(push,1)
-typedef struct {
-	union {
-		struct {
-			uint32_t reg  : 8;
-			uint32_t func : 3;
-			uint32_t dev  : 5;
-			uint32_t bus  : 8;
-			uint32_t reserved : 7;
-			uint32_t enable   : 1;
-		};
-		uint32_t raw;
-	};
-} busaddress_t;
+#define MAX_PCIDEVS 8
 
 typedef struct {
-	busaddress_t ba;
-
-	union {
-		struct {
-			uint16_t vid,pid;
-			uint16_t command,status;
-			uint8_t  revid,progif,subclass,class;
-			uint8_t  clsz,lat,hdrtype,bist;
-			uint32_t bar[6];
-		} configspace;
-		uint8_t  configspacebacking[256];
-	};
-} pcidev_t;
-#pragma pack(pop)
-
-static pcidev_t fakedev[3] = {
-
-	{ // Fake host-bridge device
-		.ba.bus = 0,
-		.ba.dev = 0,
-		.ba.func = 0,
-		.configspace.vid = 0x8086,
-		.configspace.pid = 0x0001,
-		.configspace.class = 0x6, // Bridge device
-		.configspace.subclass = 0, // Host bridge
-		.configspace.progif = 0,
-	},
-	{ // Fake serial port
-		.ba.bus = 0,
-		.ba.dev = 1,
-		.ba.func = 0,
-		.configspace.vid = 0x1234,
-		.configspace.pid = 0x5678,
-		.configspace.class = 0x7,  // Simple Communication Controllers
-		.configspace.subclass = 0, // Serial
-		.configspace.progif = 0,   // Generic XT-Compatible Serial Controller
-		.configspace.bar[0] = 0x3F8 | 1,
-	},
-	{ // Virtio block
-		.ba.bus = 0,
-		.ba.dev = 2,
-		.ba.func = 0,
-		.configspace.vid = 0x1AF4,
-		.configspace.pid = 0x1001, // Block
-		.configspace.revid = 0, // Storage
-		.configspace.class = 0x1,  // Mass storage
-		.configspace.subclass = 0x80, // Other
-		.configspace.progif = 0,
-		.configspace.bar[0] = 0xC0001000 | 0,
-
-	}
-};
+	int bInUse;
+	pcidev_t       dev;
+	pci_handler_t *pHandler;
+} devhandler_t;
+static devhandler_t devHandler[MAX_PCIDEVS] = { 0 };
 
 static busaddress_t curr_addr = { .raw = 0 };
 
 static pcidev_t *getDev(busaddress_t ba) {
 	int i;
 
-	for(i=0;i<(sizeof(fakedev)/sizeof(pcidev_t));i++) {
-		if( (fakedev[i].ba.raw & 0x7FFFFF00) == (curr_addr.raw & 0x7FFFFF00) ) {
-			return &fakedev[i];
+	for(i=0;i<MAX_PCIDEVS;i++) {
+		if( devHandler[i].bInUse ) {
+			if( (devHandler[i].dev.ba.raw & 0x7FFFFF00) == (curr_addr.raw & 0x7FFFFF00) ) {
+				return &devHandler[i].dev;
+			}
 		}
 	}
+
 	return NULL;
 }
 
@@ -105,19 +49,9 @@ static void write_address(uint32_t raw) {
 
 static int write_bar(pcidev_t *pDev,int bar,uint32_t val) {
 
-	if( (pDev->ba.bus == 0) && (pDev->ba.dev == 1) && (bar==0) ) {
-		if( val == 0xFFFFFFFF ) { // Get size
-			pDev->configspace.bar[bar] = 0xFFFFFFF8;
-		} else {
-			pDev->configspace.bar[bar] = val;
-		}
-	} else if( (pDev->ba.bus == 0) && (pDev->ba.dev == 2) && (bar==0) ) {
-		if( val == 0xFFFFFFFF ) { // Get size
-			pDev->configspace.bar[bar] = ~0xFFF;
-		} else {
-			pDev->configspace.bar[bar] = val;
-		}
-	}
+	pDev->cfgspace.decoded.bar[bar] = val;
+
+	pDev->bar[bar].base = val & ~3;
 
 	LOGD("%p: BAR%i = 0x%08x",pDev,bar,val);
 
@@ -126,9 +60,13 @@ static int write_bar(pcidev_t *pDev,int bar,uint32_t val) {
 
 static uint32 read_bar(pcidev_t *pDev,int bar) {
 
-	LOGD("%p: BAR%i = 0x%08x",pDev,bar,pDev->configspace.bar[bar]);
+	LOGD("%p: BAR%i = 0x%08x",pDev,bar,pDev->cfgspace.decoded.bar[bar]);
 
-	return pDev->configspace.bar[bar];
+	if( pDev->cfgspace.decoded.bar[bar] == 0xFFFFFFFF ) { // Sizing?
+		return ~( pDev->bar[bar].size - 1 );
+	} else {
+		return pDev->cfgspace.decoded.bar[bar];
+	}
 }
 
 static int write_device_config_b(pcidev_t *pDev,int reg,uint32_t val) {
@@ -161,11 +99,11 @@ static int read_device_config(pcidev_t *pDev,int reg,int len,void *pRet) {
 	reg &= ~3;
 	switch(reg) {
 		case 0x00: // Device+Vendor ID
-			memcpy(pRet,pDev->configspacebacking,len);
+			memcpy(pRet,pDev->cfgspace.raw,len);
 			break;
 		case 0x04: // Command+Status
 			LOGD("Command/Status=0x%08x (%x:%02x.%x)",
-				*(uint32_t*)&pDev->configspacebacking[4],
+				*(uint32_t*)&pDev->cfgspace.raw[4],
 				pDev->ba.bus,
 				pDev->ba.dev,
 				pDev->ba.func);
@@ -177,7 +115,7 @@ static int read_device_config(pcidev_t *pDev,int reg,int len,void *pRet) {
 		case 0x34:
 		case 0x38:
 		case 0x3C: //  MaxLatency, MinGrant,InterruptPin,InterruptLine
-			memcpy(pRet,pDev->configspacebacking + reg,len);
+			memcpy(pRet,pDev->cfgspace.raw + reg,len);
 			break;
 		case 0x10: //  BAR0
 		case 0x14: //  BAR1
@@ -289,7 +227,7 @@ static void  isa_pci_outw(struct isa_handler *hdl,uint16_t port,uint16_t val) {
 		if( pDev != NULL ) {
 			if( curr_addr.reg == 0x4 ) { // Command
 				LOG("Setting Command=0x%04x",val);
-				pDev->configspace.command = val & 0xFFFF;
+				pDev->cfgspace.decoded.command = val & 0xFFFF;
 				return; // HACK!
 			}
 		}
@@ -343,14 +281,85 @@ int hw_pci_init(void) {
 	return 0;
 }
 
+static int iNumDevOnBus = 0; 
 int hw_pci_register_handler(pci_handler_t *handler) {
-	return 0;
+	int i,bar;
+
+	for(i=0;i<MAX_PCIDEVS;i++) {
+		if( !devHandler[i].bInUse ) {
+			// Assign a PCI address (Always bus0)
+			devHandler[i].dev.ba.bus  = 0;
+			devHandler[i].dev.ba.dev  = iNumDevOnBus++;
+			devHandler[i].dev.ba.func = 0;
+
+			devHandler[i].pHandler = handler;
+
+			// Copy to "our" cfgspace
+			memcpy(&devHandler[i].dev.cfgspace,&handler->cfgspace,sizeof(pci_configspace_t));
+
+			// Copy to "our" BARs
+			memcpy(&devHandler[i].dev.bar,&handler->bar,sizeof(pci_bar_t) * 6);
+
+			// Pre-populate the raw BARs
+			for(bar=0;bar<6;bar++) {
+				devHandler[i].dev.cfgspace.decoded.bar[bar] = devHandler[i].dev.bar[bar].base | !!(devHandler[i].dev.bar[bar].bIsIO);
+			}
+
+			devHandler[i].bInUse = 1;
+
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+static int getDevByMMIO(uint32_t addr,devhandler_t **ppDH,int *piBar) {
+	int i,b;
+
+	for(i=0;i<MAX_PCIDEVS;i++) {
+		if( devHandler[i].bInUse ) {
+			for(b=0;b<6;b++) { // Check all BARs
+				pci_bar_t *pBar;
+
+				pBar = &devHandler[i].dev.bar[b];
+				if( (addr >= pBar->base) && (addr < (pBar->base + pBar->size)) ) {
+					*ppDH  = &devHandler[i];
+					*piBar = b;
+					return 0;
+				} 
+			}
+		}
+	}
+	return -1;
 }
 
 int hw_pci_mmio_out(uint64_t addr,int datalen,void *pData) {
-	return -1;
+	devhandler_t *pDH;
+	int bar;
+
+	if( getDevByMMIO(addr,&pDH,&bar) != 0 ) {
+		return -1;
+	}
+
+	return pDH->pHandler->mmio_out(pDH->pHandler,
+		addr - pDH->dev.bar[bar].base,
+		bar,
+		datalen,
+		pData);
 }
 
 int hw_pci_mmio_in(uint64_t addr,int datalen,void *pData) {
-	return -1;
+	devhandler_t *pDH;
+	int bar;
+
+	if( getDevByMMIO(addr,&pDH,&bar) != 0 ) {
+		return -1;
+	}
+
+	return pDH->pHandler->mmio_in(pDH->pHandler,
+		addr - pDH->dev.bar[bar].base,
+		bar,
+		datalen,
+		pData);
 }

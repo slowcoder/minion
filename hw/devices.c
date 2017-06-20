@@ -4,6 +4,9 @@
 #include "hw/isa/i8042.h"
 #include "hw/isa/i8250.h"
 #include "hw/pci/pci.h"
+#include "hw/pci/pci_hostbridge.h"
+#include "hw/pci/serial.h"
+#include "hw/pci/virtio_blk.h"
 
 #include "hw/devices.h"
 
@@ -15,6 +18,9 @@ int devices_init(struct vm *pVM) {
 	hw_isa_i8042_init();
 
 	hw_pci_init();
+	hw_pci_hostbridge_init();
+	hw_pci_serial_init();
+	hw_pci_virtio_blk_init();
 
 	return 0;
 }

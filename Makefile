@@ -22,7 +22,10 @@ OBJS += \
 	hw/isa/cmos.o \
 	hw/isa/i8042.o \
 	hw/isa/i8250.o \
-	hw/pci/pci.o
+	hw/pci/pci.o \
+	hw/pci/pci_hostbridge.o \
+	hw/pci/serial.o \
+	hw/pci/virtio_blk.o
 
 # CAOS
 OBJS += \
