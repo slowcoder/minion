@@ -88,7 +88,6 @@ int intvm_memory_setup(vm_t *pVM) {
 			LOGE("Failed to map high-RAM into VM");
 			return -2;
 		}
-
 	}
 
 	return 0;
@@ -108,5 +107,20 @@ int intvm_memory_release(vm_t *pVM) {
 void *intvm_memory_getguestspaceptr(vm_t *pVM,uint64_t guestaddr) {
 	if( pVM == NULL ) return NULL;
 
-	return pVM->ram.pLow + guestaddr;
+	// Are we only using low-ram ?
+	if( pVM->config.ramsize < (3*1024) ) {
+		if( guestaddr < (pVM->config.ramsize*1024ULL*1024ULL) ) {
+			return pVM->ram.pLow + guestaddr;
+		}
+		return NULL;
+	}
+
+	// low + high-ram
+	if( guestaddr < (3*1024ULL*1024ULL*1024ULL) ) {
+		return pVM->ram.pLow + guestaddr;
+	} else if( guestaddr < (pVM->config.ramsize*1024ULL*1024ULL) ) {
+		return pVM->ram.pLow + (guestaddr - 3*1024ULL*1024ULL*1024ULL);
+	}
+
+	return NULL;
 }
