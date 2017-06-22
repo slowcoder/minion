@@ -15,6 +15,12 @@ typedef union pci_configspace {
 		uint8_t  revid,progif,subclass,class;
 		uint8_t  clsz,lat,hdrtype,bist;
 		uint32_t bar[6];
+		uint32_t cardbus_cis;
+		uint16_t subsys_vid,subsys_id;
+		uint32_t expansion_rom;
+		uint32_t cap_ptr;
+		uint32_t reserved;
+		uint8_t  irqline,irqpin,min_grant,max_latency;
 	} decoded;
 	uint8_t  raw[256];
 } pci_configspace_t;
