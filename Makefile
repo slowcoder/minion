@@ -18,6 +18,7 @@ OBJS := \
 # Busses and Devices
 OBJS += \
 	hw/devices.o \
+	hw/disks/disks.o \
 	hw/isa/isa.o \
 	hw/isa/cmos.o \
 	hw/isa/i8042.o \

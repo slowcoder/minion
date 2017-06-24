@@ -60,3 +60,11 @@ int devices_mmio_in(uint64_t addr,int datalen,void *pData) {
 
 	return r;
 }
+
+int devices_disk_attach(struct vm *pVM,struct disk *pDisk) {
+	int r;
+
+	r = hw_pci_virtio_blk_attachdisk(pVM,pDisk);
+
+	return r;
+}

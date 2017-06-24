@@ -12,6 +12,11 @@ typedef enum {
 	eVMState_Finished_Poweroff
 } eVMState;
 
+typedef enum {
+	eVMDiskType_Invalid = 0,
+	eVMDiskType_Flatfile,
+} eVMDiskType;
+
 struct vm *vm_create(int numcpus,uint16_t megram);
 void       vm_destroy(struct vm *pVM);
 int        vm_loadkernel(struct vm *pVM,const char *pzKernelfile);
@@ -19,3 +24,5 @@ int        vm_run(struct vm *pVM);
 int        vm_pause(struct vm *pVM);
 
 eVMState   vm_getstate(struct vm *pVM);
+
+int        vm_disk_attach(struct vm *pVM,eVMDiskType type,const char *pzBackingFile);

@@ -4,6 +4,7 @@
 #include "vm/vm_api.h"
 #include "vm/vm_internal.h"
 #include "hw/devices.h"
+#include "hw/disks/disks.h"
 
 struct vm *vm_create(int numcpus,uint16_t megram) {
 	vm_t *pVM = NULL;
@@ -84,4 +85,24 @@ int        vm_pause(struct vm *pVM) {
 
 eVMState   vm_getstate(struct vm *pVM) {
 	return eVMState_Invalid;
+}
+
+int        vm_disk_attach(struct vm *pVM,eVMDiskType type,const char *pzBackingFile) {
+	int r;
+	struct disk *pDisk = NULL;
+
+	switch(type) {
+		case eVMDiskType_Flatfile:
+			pDisk = disks_open_flatfile(pzBackingFile);
+			break;
+		default:
+			ASSERT(0,"Unsupported type=%i",type);
+			break;
+	}
+
+	ASSERT(pDisk != NULL,"Failed to open backing file");
+
+	r = devices_disk_attach(pVM,pDisk);
+
+	return r;
 }
