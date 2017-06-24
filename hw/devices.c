@@ -6,7 +6,9 @@
 #include "hw/pci/pci.h"
 #include "hw/pci/pci_hostbridge.h"
 #include "hw/pci/serial.h"
+#include "hw/pci/vga.h"
 #include "hw/pci/virtio_blk.h"
+#include "hw/pci/virtio_net.h"
 #include "caos/log.h"
 
 #include "hw/devices.h"
@@ -21,7 +23,17 @@ int devices_init(struct vm *pVM) {
 	hw_pci_init();
 	hw_pci_hostbridge_init();
 	hw_pci_serial_init();
+	hw_pci_vga_init();
 	hw_pci_virtio_blk_init(pVM);
+	hw_pci_virtio_net_init(pVM);
+
+	return 0;
+}
+
+int devices_destroy(struct vm *pVM) {
+
+	hw_pci_virtio_net_destroy(pVM);
+	hw_pci_virtio_blk_destroy(pVM);
 
 	return 0;
 }

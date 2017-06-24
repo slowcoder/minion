@@ -180,6 +180,10 @@ int intvm_cpus_release(vm_t *pVM) {
 	// Release RAM
 	if( pVM->pVCPU != NULL ) {
 		for(int iCPU=0;iCPU<pVM->config.numcpus;iCPU++) {
+
+			if( pVM->pVCPU[iCPU].pMSRS != NULL )
+				free(pVM->pVCPU[iCPU].pMSRS);
+
 			munmap(pVM->pVCPU[iCPU].state,pVM->pVCPU[iCPU].state_len);
 
 			if( pVM->pVCPU[iCPU].thread.priv != NULL ) {

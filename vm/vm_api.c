@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include "caos/log.h"
 
@@ -48,8 +49,18 @@ void       vm_destroy(struct vm *pVM) {
 	LOG("Destroying VM");
 	LOG(" Num VM exits: %u",pVM->stats.numexits);
 
+	LOG(" Saving text-console");
+	uint8_t *pC = (uint8_t*)intvm_memory_getguestspaceptr(pVM,0xB8000);
+	FILE *out = fopen("b8000.raw","wb");
+	fwrite(pC,1,80*25*2,out);
+	fclose(out);
+
+	devices_destroy(pVM);
+
 	intvm_cpus_release(pVM);
 	intvm_memory_release(pVM);
+
+	intvm_loader_release(pVM);
 
 	free(pVM);
 }

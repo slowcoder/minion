@@ -100,7 +100,8 @@ static int create_zeropage(vm_t *pVM) {
 	cmd_line  = (char *)intvm_memory_getguestspaceptr(pVM,0x20000);	
 
 	strcpy(cmd_line,"noapic noacpi pci=conf1 i8042.direct=1 console=ttyS0 i8042.noaux=1 earlyprintk=serial");
-	strcpy(cmd_line,"nolapic noapic noacpi pci=conf1 reboot=k panic=1 i8042.direct=1 i8042.dumbkbd=1 i8042.nopnp=1 earlyprintk=serial console=ttyS0 i8042.noaux=1 root=/dev/vda rw");
+	strcpy(cmd_line,"nolapic noapic noacpi pci=conf1 reboot=k panic=1 i8042.direct=1 i8042.dumbkbd=1 i8042.nopnp=1 earlyprintk=serial console=/dev/ttyS0 i8042.noaux=1 root=/dev/vda rw init=/etc/init.d/S12own");
+	strcpy(cmd_line,"nolapic noapic noacpi pci=conf1 panic=1 i8042.direct=1 i8042.dumbkbd=1 i8042.nopnp=1 i8042.noaux=1 root=/dev/vda rw init=/etc/init.d/S12own");
 
 	// Zero out ourselves
 	memset(zero_page, 0, sizeof(struct boot_params));
@@ -117,8 +118,21 @@ static int create_zeropage(vm_t *pVM) {
 	zero_page->hdr.cmd_line_ptr   = 0x20000;
 	zero_page->hdr.cmdline_size   = strlen(cmd_line) + 1;
 
-	int ne820 = 0;
+	// Setup video
+	zero_page->hdr.vid_mode = 0xffff; // 80x25
 
+	zero_page->screen_info.orig_video_mode = 3;
+	zero_page->screen_info.orig_video_isVGA = 1;
+	zero_page->screen_info.orig_video_lines = 25;
+	zero_page->screen_info.orig_video_cols = 80;
+	zero_page->screen_info.orig_video_ega_bx = 3;
+	zero_page->screen_info.orig_video_points = 16;
+	zero_page->screen_info.orig_y = zero_page->screen_info.orig_video_lines - 1;
+
+	//zero_page->screen_info.orig_video_mode = 0;
+
+
+	int ne820 = 0;
 	zero_page->e820_map[ne820].addr = 0x00000000;
 	zero_page->e820_map[ne820].size = 0x0009fc00; // Top of 640KB
 	zero_page->e820_map[ne820].type = E820_RAM;
@@ -163,16 +177,6 @@ static int create_zeropage(vm_t *pVM) {
 
 	zero_page->e820_entries = ne820;
 
-#if 0
-	} else if( pVM->pLoader->type == eImagetype_Linux32 ) {
-		// 32bit needs to have _some_ free address-space
-		// at the top of the address-space to map in MMIO devices
-		zero_page->e820_entries++;
-		zero_page->e820_map[1].addr =  0x100000UL; // A20 range and up to 4GB
-		zero_page->e820_map[1].size =  (pVM->mem.totmegs-1) * 1024 * 1024;
-		zero_page->e820_map[1].type = E820_RAM;
-	}
-#endif
 	return 0;
 }
 
@@ -264,12 +268,16 @@ int intvm_loader_loadkernel(vm_t *pVM,const char *pzFilename) {
 int intvm_loader_release(vm_t *pVM) {
 	int i,nsect;
 
-	nsect = pVM->kernel.numsections;
-	for(i=0;i<nsect;i++) {
-		if( pVM->kernel.section[i].pFreeable != NULL ) {
-			free(pVM->kernel.section[i].pFreeable);
-			pVM->kernel.section[i].pFreeable = NULL;
+	if( pVM->kernel.section != NULL ) {
+		nsect = pVM->kernel.numsections;
+		for(i=0;i<nsect;i++) {
+			if( pVM->kernel.section[i].pFreeable != NULL ) {
+				free(pVM->kernel.section[i].pFreeable);
+				pVM->kernel.section[i].pFreeable = NULL;
+			}
 		}
+		free(pVM->kernel.section);
 	}
+
 	return 0;
 }

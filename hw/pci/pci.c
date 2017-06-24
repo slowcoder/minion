@@ -70,6 +70,9 @@ static uint32 read_bar(pcidev_t *pDev,int bar) {
 }
 
 static int write_device_config_b(pcidev_t *pDev,int reg,uint32_t val) {
+	if( reg == 0xC ) // BIST
+		return 0;
+
 	if( (reg < 0x10) || (reg >= 0x28) ) {
 		LOGW("Write to non-BAR register (0x%02x, val=0x%x). Not supported",reg,val);
 		return 0;
@@ -226,7 +229,7 @@ static void  isa_pci_outw(struct isa_handler *hdl,uint16_t port,uint16_t val) {
 		pDev = getDev(curr_addr);
 		if( pDev != NULL ) {
 			if( curr_addr.reg == 0x4 ) { // Command
-				LOG("Setting Command=0x%04x",val);
+				LOGD("Setting Command=0x%04x",val);
 				pDev->cfgspace.decoded.command = val & 0xFFFF;
 				return; // HACK!
 			}

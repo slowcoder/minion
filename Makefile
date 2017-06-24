@@ -26,7 +26,9 @@ OBJS += \
 	hw/pci/pci.o \
 	hw/pci/pci_hostbridge.o \
 	hw/pci/serial.o \
-	hw/pci/virtio_blk.o
+	hw/pci/vga.o \
+	hw/pci/virtio_blk.o \
+	hw/pci/virtio_net.o
 
 # CAOS
 OBJS += \

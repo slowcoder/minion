@@ -3,7 +3,7 @@
 
 #include "hw/isa/isa.h"
 
-#define MAX_HANDLERS 8
+#define MAX_HANDLERS 10
 
 static int isahandlers = 0;
 static isa_handler_t *isahandler[MAX_HANDLERS] = { 0 };
@@ -86,5 +86,6 @@ int hw_isa_register_handler(isa_handler_t *handler) {
 		isahandlers++;
 		return 0;
 	}
+	ASSERT(0,"Too few slots for ISA handlers");
 	return -1;
 }
