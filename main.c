@@ -7,7 +7,7 @@
 #define KERNEL_FILE "kernels/bzImage-initrd.64"
 //#define KERNEL_FILE "kernels/bzImage-3.16.44.64"
 
-int main(void) {
+int main(int argc,char **argv) {
 	struct vm *pVM;
 	int r = 0;
 
@@ -22,6 +22,11 @@ int main(void) {
 		LOGE("Failed to load kernel");
 		r = -2;
 		goto err_exit;
+	}
+
+	if( argc > 1 ) {
+		LOG("Loading \"%s\" as disk",argv[1]);
+		vm_disk_attach(pVM,eVMDiskType_Flatfile,argv[1]);
 	}
 
 	vm_run(pVM);
